@@ -1,7 +1,7 @@
 - name: Build iOS
   run: |
     cd ios
-    xcodebuild -list -workspace *.xcworkspace\
+    xcodebuild -list -workspace *.xcworkspace \
       -workspace *.xcworkspace \
       -scheme PortfelikKaucyjny \
       -configuration Release \
