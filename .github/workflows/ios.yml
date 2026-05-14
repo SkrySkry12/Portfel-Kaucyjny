@@ -1,4 +1,4 @@
-name: iOS Build Clean
+name: iOS Clean Build
 
 on:
   workflow_dispatch:
@@ -7,7 +7,7 @@ on:
       - main
 
 jobs:
-  build-ios:
+  ios:
     runs-on: macos-latest
 
     steps:
@@ -18,17 +18,14 @@ jobs:
         with:
           node-version: 20
 
-      - name: Install dependencies
+      - name: Install deps
         run: npm install --legacy-peer-deps
 
-      - name: Install Expo CLI
-        run: npm install -g expo-cli
-
-      - name: Expo prebuild (FORCE CLEAN)
+      - name: Expo prebuild
         run: npx expo prebuild --platform ios --clean
 
-      - name: Show ios folder
-        run: ls -R ios
+      - name: Show ios output
+        run: ls -R ios || true
 
       - name: Install pods
         run: |
@@ -37,18 +34,17 @@ jobs:
 
       - name: Detect workspace
         run: |
-          WORKSPACE=$(ls ios/*.xcworkspace | head -n 1)
-          echo "WORKSPACE=$WORKSPACE" >> $GITHUB_ENV
+          echo "WORKSPACE=$(ls ios/*.xcworkspace | head -n 1)" >> $GITHUB_ENV
 
-      - name: Detect scheme (SAFE)
+      - name: Detect scheme
         run: |
-          SCHEME=$(basename "$WORKSPACE" .xcworkspace)
-          echo "SCHEME=$SCHEME" >> $GITHUB_ENV
+          echo "SCHEME=$(basename "$WORKSPACE" .xcworkspace)" >> $GITHUB_ENV
 
-      - name: Build iOS
+      - name: Build
         run: |
           xcodebuild \
             -workspace "$WORKSPACE" \
             -scheme "$SCHEME" \
             -configuration Release \
-            -sdk iphoneos build
+            -sdk iphoneos \
+            build
