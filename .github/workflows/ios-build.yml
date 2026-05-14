@@ -1,4 +1,4 @@
-name: iOS Build (Expo Prebuild in CI)
+name: iOS Build Stable
 
 on:
   workflow_dispatch:
@@ -11,7 +11,7 @@ jobs:
     runs-on: macos-latest
 
     steps:
-      - name: Checkout repo
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Setup Node
@@ -25,34 +25,41 @@ jobs:
       - name: Install Expo CLI
         run: npm install -g expo-cli
 
-      - name: Generate iOS project (Expo Prebuild)
+      # 🔥 GENERUJE IOS NA MACOS
+      - name: Expo prebuild (ios)
         run: npx expo prebuild --platform ios
 
-      - name: List generated iOS files (DEBUG)
-        run: ls -R ios
+      # 🔥 SPRAWDZAMY CO POWSTAŁO
+      - name: List ios folder
+        run: ls ios
 
-      - name: Install CocoaPods
+      - name: Install pods
         run: |
           cd ios
           pod install
 
-      - name: Find workspace name
-        id: scheme
+      # 🔥 ZNAJDŹ WORKSPACE
+      - name: Detect workspace
         run: |
-          cd ios
-          echo "WORKSPACE=$(ls *.xcworkspace | head -n 1)" >> $GITHUB_ENV
+          echo "WORKSPACE=$(ls ios/*.xcworkspace | head -n 1)" >> $GITHUB_ENV
 
-      - name: Build iOS (Xcode)
+      # 🔥 ZNAJDŹ SCHEME AUTOMATYCZNIE (POPRAWNIE)
+      - name: Detect scheme
         run: |
-          cd ios
+          SCHEME=$(basename "$WORKSPACE" .xcworkspace)
+          echo "SCHEME=$SCHEME" >> $GITHUB_ENV
+
+      # 🔥 BUILD
+      - name: Build iOS
+        run: |
           xcodebuild \
             -workspace "$WORKSPACE" \
-            -scheme "$(basename "$WORKSPACE" .xcworkspace)" \
+            -scheme "$SCHEME" \
             -configuration Release \
             -sdk iphoneos \
             build
 
-      - name: Upload build artifact
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ios-build
