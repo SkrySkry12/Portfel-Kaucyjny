@@ -19,7 +19,6 @@
         "ITSAppUsesNonExemptEncryption": false
       },
       "bundleIdentifier": "com.abacusai.portfelkaucyjny.t1778749850",
-      "deploymentTarget": "13.4",
       "buildNumber": "1"
     },
     "android": {
@@ -70,7 +69,6 @@
     "expo-build-properties",
     {
       "ios": {
-        "deploymentTarget": "15.1"
       }
     }
   ]
