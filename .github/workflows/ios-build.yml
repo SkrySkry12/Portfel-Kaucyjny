@@ -1,47 +1,8 @@
-name: iOS Build (No Local Prebuild)
-
-on:
-  workflow_dispatch:
-  push:
-    branches:
-      - main
-
-jobs:
-  build-ios:
-    runs-on: macos-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Install dependencies
-        run: npm install --legacy-peer-deps
-
-      - name: Install Expo CLI
-        run: npm install -g expo-cli
-
-      - name: Generate iOS project (FORCED ON MACOS)
-        run: npx expo prebuild --platform ios
-
-      - name: Install Pods
-        run: |
-          cd ios
-          pod install
-
-      - name: Build iOS
-        run: |
-          cd ios
-          xcodebuild \
-            -workspace *.xcworkspace \
-            -scheme $(ls *.xcworkspace | cut -d'.' -f1) \
-            -configuration Release \
-            -sdk iphoneos build
-
-      - name: Upload IPA artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ios-build
-          path: ios/build
+- name: Build iOS
+  run: |
+    cd ios
+    xcodebuild -list -workspace *.xcworkspace\
+      -workspace *.xcworkspace \
+      -scheme PortfelikKaucyjny \
+      -configuration Release \
+      -sdk iphoneos build
