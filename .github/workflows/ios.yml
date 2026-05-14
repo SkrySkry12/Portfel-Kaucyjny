@@ -1,4 +1,4 @@
-name: iOS Build Stable (Auto Scheme)
+name: iOS Build FIXED (No Path Assumption)
 
 on:
   workflow_dispatch:
@@ -22,29 +22,35 @@ jobs:
       - name: Install dependencies
         run: npm install --legacy-peer-deps
 
-      - name: Expo prebuild (iOS)
+      # 🔥 WAŻNE: prebuild NA ROOT, nie w ios
+      - name: Expo prebuild
         run: npx expo prebuild --platform ios --clean
 
-      - name: Install pods
-        run: |
-          cd ios
-          pod install
+      # DEBUG: pokaż co powstało
+      - name: Show structure
+        run: ls -R
 
-      - name: Find workspace
+      - name: Install pods (only if ios exists)
         run: |
-          WORKSPACE=$(find ios -name "*.xcworkspace" | head -n 1)
+          if [ -d "ios" ]; then
+            cd ios
+            pod install
+          fi
+
+      # 🔥 NIE zakładamy ścieżki ios/...
+      - name: Find workspace safely
+        run: |
+          WORKSPACE=$(find . -name "*.xcworkspace" | head -n 1)
           echo "WORKSPACE=$WORKSPACE" >> $GITHUB_ENV
+          echo "FOUND: $WORKSPACE"
 
-      # 🔥 NAJWAŻNIEJSZE: pobieramy realny scheme
-      - name: Detect schemes
+      - name: List schemes (debug)
         run: |
-          cd ios
           xcodebuild -list -workspace "$WORKSPACE"
 
-      # 👉 ręcznie wybierany przez CI fallback (pierwszy scheme)
-      - name: Set scheme automatically
+      - name: Get scheme
         run: |
-          SCHEME=$(xcodebuild -list -workspace "$WORKSPACE" | sed -n '/Schemes:/,$p' | tail -n +2 | head -n 1 | xargs)
+          SCHEME=$(xcodebuild -list -workspace "$WORKSPACE" | awk '/Schemes:/{getline; print $1}')
           echo "SCHEME=$SCHEME" >> $GITHUB_ENV
 
       - name: Build iOS
@@ -55,9 +61,3 @@ jobs:
             -configuration Release \
             -sdk iphoneos \
             build
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ios-build
-          path: ios/build
