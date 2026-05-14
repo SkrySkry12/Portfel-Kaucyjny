@@ -1,0 +1,39 @@
+name: iOS Build (No EAS)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-ios:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - run: npm install --legacy-peer-deps
+
+      - run: npm install -g expo-cli
+
+      - run: npx expo prebuild --platform ios --clean
+
+      - run: |
+          cd ios
+          pod install
+
+      - name: Build IPA
+        run: |
+          cd ios
+          xcodebuild -workspace *.xcworkspace -scheme $(ls *.xcworkspace | cut -d'.' -f1) -configuration Release -sdk iphoneos build
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-app
+          path: ios/build

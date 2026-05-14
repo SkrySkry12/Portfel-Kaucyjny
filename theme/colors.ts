@@ -1,0 +1,41 @@
+export const LightColors = {
+  background: '#F8FAFC',
+  surface: '#FFFFFF',
+  surfaceElevated: '#F1F5F9',
+  primary: '#1A73E8',
+  accent: '#06B6D4',
+  success: '#10B981',
+  error: '#EF4444',
+  warning: '#F59E0B',
+  textPrimary: '#0F172A',
+  textSecondary: '#475569',
+  textTertiary: '#94A3B8',
+  border: '#E2E8F0',
+  cardBg: '#FFFFFF',
+  tabBar: 'rgba(248,250,252,0.92)',
+  overlay: 'rgba(0,0,0,0.4)',
+  shimmer: '#E2E8F0',
+  inputBg: '#F1F5F9',
+};
+
+export const DarkColors = {
+  background: '#0A0F1A',
+  surface: '#111827',
+  surfaceElevated: '#1E293B',
+  primary: '#1A73E8',
+  accent: '#06B6D4',
+  success: '#10B981',
+  error: '#EF4444',
+  warning: '#F59E0B',
+  textPrimary: '#F1F5F9',
+  textSecondary: '#94A3B8',
+  textTertiary: '#64748B',
+  border: '#1E293B',
+  cardBg: '#111827',
+  tabBar: 'rgba(10,15,26,0.92)',
+  overlay: 'rgba(0,0,0,0.6)',
+  shimmer: '#1E293B',
+  inputBg: '#1E293B',
+};
+
+export type ColorScheme = typeof LightColors;
