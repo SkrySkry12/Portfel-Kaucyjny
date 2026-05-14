@@ -1,4 +1,4 @@
-name: iOS Build (No EAS)
+name: iOS Build (No Local Prebuild)
 
 on:
   workflow_dispatch:
@@ -17,23 +17,31 @@ jobs:
         with:
           node-version: 20
 
-      - run: npm install --legacy-peer-deps
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
 
-      - run: npm install -g expo-cli
+      - name: Install Expo CLI
+        run: npm install -g expo-cli
 
-      - run: npx expo prebuild --platform ios --clean
+      - name: Generate iOS project (FORCED ON MACOS)
+        run: npx expo prebuild --platform ios
 
-      - run: |
+      - name: Install Pods
+        run: |
           cd ios
           pod install
 
-      - name: Build IPA
+      - name: Build iOS
         run: |
           cd ios
-          xcodebuild -workspace *.xcworkspace -scheme $(ls *.xcworkspace | cut -d'.' -f1) -configuration Release -sdk iphoneos build
+          xcodebuild \
+            -workspace *.xcworkspace \
+            -scheme $(ls *.xcworkspace | cut -d'.' -f1) \
+            -configuration Release \
+            -sdk iphoneos build
 
-      - name: Upload artifact
+      - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ios-app
+          name: ios-build
           path: ios/build
