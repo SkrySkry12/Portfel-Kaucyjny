@@ -1,4 +1,4 @@
-name: iOS Build
+name: iOS Build (Expo Prebuild in CI)
 
 on:
   workflow_dispatch:
@@ -25,16 +25,35 @@ jobs:
       - name: Install Expo CLI
         run: npm install -g expo-cli
 
-      - name: List Xcode schemes (DEBUG)
+      - name: Generate iOS project (Expo Prebuild)
+        run: npx expo prebuild --platform ios
+
+      - name: List generated iOS files (DEBUG)
+        run: ls -R ios
+
+      - name: Install CocoaPods
         run: |
           cd ios
-          xcodebuild -list -workspace *.xcworkspace
+          pod install
 
-      - name: Build iOS
+      - name: Find workspace name
+        id: scheme
+        run: |
+          cd ios
+          echo "WORKSPACE=$(ls *.xcworkspace | head -n 1)" >> $GITHUB_ENV
+
+      - name: Build iOS (Xcode)
         run: |
           cd ios
           xcodebuild \
-            -workspace *.xcworkspace \
-            -scheme PortfelikKaucyjny \
+            -workspace "$WORKSPACE" \
+            -scheme "$(basename "$WORKSPACE" .xcworkspace)" \
             -configuration Release \
-            -sdk iphoneos build
+            -sdk iphoneos \
+            build
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build
+          path: ios/build
