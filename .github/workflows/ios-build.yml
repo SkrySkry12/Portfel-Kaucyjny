@@ -1,8 +1,40 @@
-- name: Build iOS
-  run: |
-    cd ios
-    xcodebuild -list -workspace *.xcworkspace \
-      -workspace *.xcworkspace \
-      -scheme PortfelikKaucyjny \
-      -configuration Release \
-      -sdk iphoneos build
+name: iOS Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-ios:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Install Expo CLI
+        run: npm install -g expo-cli
+
+      - name: List Xcode schemes (DEBUG)
+        run: |
+          cd ios
+          xcodebuild -list -workspace *.xcworkspace
+
+      - name: Build iOS
+        run: |
+          cd ios
+          xcodebuild \
+            -workspace *.xcworkspace \
+            -scheme PortfelikKaucyjny \
+            -configuration Release \
+            -sdk iphoneos build
