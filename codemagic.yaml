@@ -23,19 +23,18 @@ workflows:
       - name: Detect scheme and workspace
         script: |
           WORKSPACE=$(ls -d ios/*.xcworkspace | head -1)
-          echo "Workspace: $WORKSPACE"
-          
           SCHEME=$(xcodebuild -workspace "$WORKSPACE" -list -json | python3 -c "
           import json, sys
           data = json.load(sys.stdin)
           schemes = data['workspace']['schemes']
           print(schemes[0])
           ")
+          echo "Workspace: $WORKSPACE"
           echo "Scheme: $SCHEME"
           echo "WORKSPACE=$WORKSPACE" >> $CM_ENV
           echo "SCHEME=$SCHEME" >> $CM_ENV
 
-      - name: Archive app
+      - name: Build and package IPA
         script: |
           ARCHIVE_PATH="$(pwd)/build/App.xcarchive"
           
@@ -53,53 +52,72 @@ workflows:
             DEVELOPMENT_TEAM="" \
             ARCHS="arm64" \
             COMPILER_INDEX_STORE_ENABLE=NO \
-            2>&1 | tee build_log.txt | tail -30
+            2>&1 | tee build_log.txt | tail -20
           
-          BUILD_EXIT=$?
           echo ""
-          echo "=== Archive result: exit code $BUILD_EXIT ==="
-          echo ""
-          echo "=== Archive contents ==="
-          find "$ARCHIVE_PATH" -name "*.app" -type d 2>/dev/null
-          ls -la "$ARCHIVE_PATH/Products/Applications/" 2>/dev/null || echo "No Products/Applications dir"
-
-      - name: Package IPA
-        script: |
-          ARCHIVE_PATH="$(pwd)/build/App.xcarchive"
+          echo "=== Searching for .app ==="
           
-          # Primary: look inside archive
-          APP_PATH=$(find "$ARCHIVE_PATH/Products/Applications" -name "*.app" -type d 2>/dev/null | head -1)
+          # Debug: show full archive structure
+          find "$ARCHIVE_PATH" -type d -maxdepth 4 2>/dev/null
           
-          # Fallback: search entire archive
+          # Method 1: Standard archive location
+          APP_PATH=$(find "$ARCHIVE_PATH/Products" -name "*.app" -type d 2>/dev/null | head -1)
+          
+          # Method 2: Anywhere in archive
           if [ -z "$APP_PATH" ]; then
-            echo "Not in Products/Applications, searching archive..."
             APP_PATH=$(find "$ARCHIVE_PATH" -name "*.app" -type d 2>/dev/null | head -1)
           fi
           
-          # Fallback: DerivedData
+          # Method 3: DerivedData
           if [ -z "$APP_PATH" ]; then
-            echo "Not in archive, searching DerivedData..."
-            APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData -name "*.app" -path "*Release*" -type d 2>/dev/null | head -1)
+            echo "Searching DerivedData..."
+            APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData -name "*.app" -not -path "*/Intermediates.noindex/*" -type d 2>/dev/null | head -1)
           fi
-
+          
+          # Method 4: DerivedData including intermediates
           if [ -z "$APP_PATH" ]; then
-            echo "ERROR: No .app found anywhere!"
-            echo "=== Full archive structure ==="
-            find "$ARCHIVE_PATH" -type d 2>/dev/null | head -30
-            echo "=== Last 50 lines of build log ==="
-            tail -50 build_log.txt
+            echo "Searching DerivedData intermediates..."
+            APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData -name "*.app" -path "*ArchiveIntermediates*" -type d 2>/dev/null | head -1)
+          fi
+          
+          # Method 5: Rebuild as regular build instead of archive
+          if [ -z "$APP_PATH" ]; then
+            echo "Archive .app not found. Trying regular build..."
+            BUILD_DIR="$(pwd)/build/Release-iphoneos"
+            
+            xcodebuild build \
+              -workspace "$WORKSPACE" \
+              -scheme "$SCHEME" \
+              -configuration Release \
+              -sdk iphoneos \
+              -destination "generic/platform=iOS" \
+              CONFIGURATION_BUILD_DIR="$BUILD_DIR" \
+              CODE_SIGN_IDENTITY="-" \
+              CODE_SIGNING_REQUIRED=NO \
+              CODE_SIGNING_ALLOWED=NO \
+              AD_HOC_CODE_SIGNING_ALLOWED=YES \
+              DEVELOPMENT_TEAM="" \
+              ARCHS="arm64" \
+              2>&1 | tail -10
+            
+            APP_PATH=$(find "$BUILD_DIR" -name "*.app" -type d 2>/dev/null | head -1)
+          fi
+          
+          if [ -z "$APP_PATH" ]; then
+            echo "ERROR: No .app found!"
             exit 1
           fi
-
-          echo "Found app: $APP_PATH"
-          echo "App size: $(du -sh "$APP_PATH" | cut -f1)"
           
+          echo "Found: $APP_PATH"
+          echo "Size: $(du -sh "$APP_PATH" | cut -f1)"
+          
+          # Package IPA
           mkdir -p Payload
           cp -r "$APP_PATH" Payload/
           zip -r portfel-kaucyjny.ipa Payload
           
           echo ""
-          echo "IPA created successfully!"
+          echo "=== IPA created ==="
           ls -lh portfel-kaucyjny.ipa
 
     artifacts:
