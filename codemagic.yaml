@@ -1,0 +1,107 @@
+workflows:
+  ios-unsigned:
+    name: iOS Unsigned IPA
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      node: 18
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Install dependencies
+        script: |
+          yarn install --frozen-lockfile || yarn install
+
+      - name: Expo prebuild
+        script: |
+          npx expo prebuild --platform ios --clean
+
+      - name: Install CocoaPods
+        script: |
+          cd ios && pod install
+
+      - name: Detect scheme and workspace
+        script: |
+          WORKSPACE=$(ls -d ios/*.xcworkspace | head -1)
+          echo "Workspace: $WORKSPACE"
+          
+          SCHEME=$(xcodebuild -workspace "$WORKSPACE" -list -json | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          schemes = data['workspace']['schemes']
+          print(schemes[0])
+          ")
+          echo "Scheme: $SCHEME"
+          echo "WORKSPACE=$WORKSPACE" >> $CM_ENV
+          echo "SCHEME=$SCHEME" >> $CM_ENV
+
+      - name: Archive app
+        script: |
+          ARCHIVE_PATH="$(pwd)/build/App.xcarchive"
+          
+          xcodebuild archive \
+            -workspace "$WORKSPACE" \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination "generic/platform=iOS" \
+            -archivePath "$ARCHIVE_PATH" \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            AD_HOC_CODE_SIGNING_ALLOWED=YES \
+            DEVELOPMENT_TEAM="" \
+            ARCHS="arm64" \
+            COMPILER_INDEX_STORE_ENABLE=NO \
+            2>&1 | tee build_log.txt | tail -30
+          
+          BUILD_EXIT=$?
+          echo ""
+          echo "=== Archive result: exit code $BUILD_EXIT ==="
+          echo ""
+          echo "=== Archive contents ==="
+          find "$ARCHIVE_PATH" -name "*.app" -type d 2>/dev/null
+          ls -la "$ARCHIVE_PATH/Products/Applications/" 2>/dev/null || echo "No Products/Applications dir"
+
+      - name: Package IPA
+        script: |
+          ARCHIVE_PATH="$(pwd)/build/App.xcarchive"
+          
+          # Primary: look inside archive
+          APP_PATH=$(find "$ARCHIVE_PATH/Products/Applications" -name "*.app" -type d 2>/dev/null | head -1)
+          
+          # Fallback: search entire archive
+          if [ -z "$APP_PATH" ]; then
+            echo "Not in Products/Applications, searching archive..."
+            APP_PATH=$(find "$ARCHIVE_PATH" -name "*.app" -type d 2>/dev/null | head -1)
+          fi
+          
+          # Fallback: DerivedData
+          if [ -z "$APP_PATH" ]; then
+            echo "Not in archive, searching DerivedData..."
+            APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData -name "*.app" -path "*Release*" -type d 2>/dev/null | head -1)
+          fi
+
+          if [ -z "$APP_PATH" ]; then
+            echo "ERROR: No .app found anywhere!"
+            echo "=== Full archive structure ==="
+            find "$ARCHIVE_PATH" -type d 2>/dev/null | head -30
+            echo "=== Last 50 lines of build log ==="
+            tail -50 build_log.txt
+            exit 1
+          fi
+
+          echo "Found app: $APP_PATH"
+          echo "App size: $(du -sh "$APP_PATH" | cut -f1)"
+          
+          mkdir -p Payload
+          cp -r "$APP_PATH" Payload/
+          zip -r portfel-kaucyjny.ipa Payload
+          
+          echo ""
+          echo "IPA created successfully!"
+          ls -lh portfel-kaucyjny.ipa
+
+    artifacts:
+      - "*.ipa"
+      - build_log.txt
